@@ -27,7 +27,7 @@ Adafruit_BME280 bme;
 SSD1306 OLED(0x3D, 4, 5);
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
-unsigned int blueFontHeigh = 20;
+unsigned int blueFontHeigh = 24;
 
 char *ssid = "scwook";
 char *password = "07170619";
@@ -41,10 +41,16 @@ WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
 #define temperature_image_width 13
 #define temperature_image_height 20
 static unsigned char temperature_image_bits[] = {
-   0x00, 0x00, 0xe0, 0x00, 0x10, 0x01, 0x90, 0x01, 0x10, 0x01, 0x90, 0x01,
-   0x10, 0x01, 0x10, 0x01, 0x90, 0x01, 0x10, 0x01, 0x18, 0x03, 0x0c, 0x06,
-   0x04, 0x04, 0x02, 0x08, 0x02, 0x08, 0x06, 0x0c, 0x04, 0x04, 0x0c, 0x06,
-   0xf8, 0x01, 0x00, 0x00 };
+  0x00, 0x00, 0xe0, 0x00, 0x10, 0x01, 0x90, 0x01, 0x10, 0x01, 0x90, 0x01,
+  0x10, 0x01, 0x10, 0x01, 0x90, 0x01, 0x10, 0x01, 0x18, 0x03, 0x0c, 0x06,
+  0x04, 0x04, 0x02, 0x08, 0x02, 0x08, 0x06, 0x0c, 0x04, 0x04, 0x0c, 0x06,
+  0xf8, 0x01, 0x00, 0x00
+};
+
+const uint8_t Bat816[16] = {
+  0x0F, 0xFE, 0x30, 0x02, 0x26, 0xDA, 0x26, 0xDA, 0x26, 0xDA, 0x26, 0xDA, 0x30, 0x02, 0x0F, 0xFE
+};
+
 
 uint16_t acON[] = { 2561, 698, 1239, 4547, 553, 3993
                     , 500, 1756, 501, 657, 503, 605
@@ -246,7 +252,6 @@ void setup() {
 
   OLED.init();
   OLED.flipScreenVertically();
-  blueFontHeigh = 20;
 
   irsend.begin();
 }
@@ -459,21 +464,22 @@ void loop() {
   delay(500);
 
   String degree = "\u00b0";
-  String t = String(temperature) + degree + "C";
+  String t = "T : " + String(temperature) + degree + "C";
 
   //  uint16_t width = OLED.getStringWidth(t);
 
   String percent = "\u0025";
-  String h = String(humidity) + percent;
+  String h = "H : " + String(humidity) + percent;
 
   OLED.clear();
   OLED.setFont(ArialMT_Plain_10);
   OLED.drawString(0, 0, "Hellow World");
-  
+  OLED.drawFastImage(112, 2, 8, 16, Bat816);
+
   OLED.setFont(ArialMT_Plain_24);
-//  OLED.drawString(0, yellowLineOffset, t);
-//  OLED.drawString(0, yellowLineOffset + blueFontHeigh, h);
-  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
+  OLED.drawString(0, yellowLineOffset, t);
+  OLED.drawString(0, yellowLineOffset + blueFontHeigh, h);
+  //  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
 
   OLED.display();
 
