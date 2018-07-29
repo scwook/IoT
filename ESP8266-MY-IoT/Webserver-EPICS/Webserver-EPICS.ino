@@ -1,3 +1,7 @@
+#include <Ticker.h>
+
+Ticker tickerWiFi;
+
 // Network
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -21,7 +25,7 @@ WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
 #include <IRsend.h>
 #include "IRCode.h"
 
-#define IR_LED 13  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+#define IR_LED 15  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(IR_LED);  // Set the GPIO to be used to sending the message.
 
@@ -31,14 +35,14 @@ IRsend irsend(IR_LED);  // Set the GPIO to be used to sending the message.
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
-#define BME280_ADDR
+#define BME280_ADDR 0x76
 Adafruit_BME280 bme;
 
 // SSD1306 OLED
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3D, 4, 5);
+SSD1306 OLED(0x3C, 4, 5);
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
 unsigned int blueFontHeigh = 24;
@@ -46,16 +50,34 @@ unsigned int blueFontHeigh = 24;
 //#define SEALEVELPRESSURE_HPA (1013.25)
 
 // User Define Variable
+
 boolean wifiConnection = false;
 boolean acState = false; // Air Conditioner state, ON: true, OFF: false
 boolean bmeState = false; // BME280 Sensor connection state, success: true, fail: false
 boolean oledState = false;
+
+int32_t rssi = 0;
 
 unsigned int count = 0; // For Air Conditioner auto control
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+
+  oledState = OLED.init();
+  if ( !oledState ) {
+    Serial.println("Could not find a valid OLED, check wiring!");
+  }
+
+  //  OLED.flipScreenVertically();
+
+  OLED.clear();
+  OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
+  OLED.drawXbm(0, 48, wifi_width, wifi_height, *wifi_bits[0]);
+
+  //  OLED.setFont(ArialMT_Plain_24);
+  //  OLED.drawString(0, 16, "Control");
+  OLED.display();
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -75,14 +97,16 @@ void setup() {
     delay(500);
   }
 
+  tickerWiFi.attach(5, getRSSI);
+
   Serial.println("");
   if ( WiFi.status() == WL_CONNECTED ) {
     Serial.println("WiFi connected");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    //    WebServer.on("/", handleRoot);
-    //    WebServer.on("/ac.cgi", handleONOFF);
+    WebServer.on("/", handleRoot);
+    WebServer.on("/ac.cgi", handleONOFF);
 
     WebServer.begin();
     Serial.println("HTTP Server Started");
@@ -102,12 +126,14 @@ void setup() {
 
   irsend.begin();
 
-  oledState = OLED.init();
-  if ( !oledState ) {
-    Serial.println("Could not find a valid OLED, check wiring!");
-  }
+  delay(3000);
+}
 
-  OLED.flipScreenVertically();
+void getRSSI() {
+  rssi = WiFi.RSSI();
+
+  Serial.print("RSSI = ");
+  Serial.println(rssi);
 }
 
 void handleRoot() {
@@ -321,18 +347,26 @@ void loop() {
     String h = "H : " + String(humidity) + percent;
 
     OLED.clear();
-    OLED.setFont(ArialMT_Plain_10);
-    OLED.drawString(0, 0, "Hellow World");
-    OLED.drawFastImage(112, 2, 8, 16, Bat816);
 
     OLED.setFont(ArialMT_Plain_24);
-    OLED.drawString(0, yellowLineOffset, t);
-    OLED.drawString(0, yellowLineOffset + blueFontHeigh, h);
+    OLED.drawString(0, 0, t);
+    OLED.drawString(0, 0 + blueFontHeigh, h);
     //  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
+    OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[count]);
+
+    //    OLED.setFont(ArialMT_Plain_10);
+    //    OLED.drawString(0, 56, "Hellow World");
+    //    OLED.drawFastImage(112, 2, 8, 16, Bat816);
 
     OLED.display();
 
     delay(500);
+    count += 1;
+
+
+    if( count > 3 ) {
+      count = 0;
+    }
   }
 
   if (wifiConnection) {
@@ -341,7 +375,7 @@ void loop() {
     processWiFiClient(temperature, humidity, pressure);
   }
 
-  Serial.println("Loop End");
+//  Serial.println("Loop End");
 
   delay(500);
 }
