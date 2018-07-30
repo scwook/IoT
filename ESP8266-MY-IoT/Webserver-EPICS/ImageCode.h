@@ -54,6 +54,13 @@ static unsigned char raon_symbol_bits[] = {
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 
 };
 
+#define wifi_s0_width 14
+#define wifi_s0_height 12
+static unsigned char wifi_s0_bits[] = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 #define wifi_s1_width 14
 #define wifi_s1_height 12
 static unsigned char wifi_s1_bits[] = {
@@ -84,8 +91,8 @@ static unsigned char wifi_s4_bits[] = {
 
 #define wifi_width 14
 #define wifi_height 12
-static unsigned char *wifi_bits[][4] = {
-	{wifi_s1_bits}, {wifi_s2_bits}, {wifi_s3_bits}, {wifi_s4_bits}
+static unsigned char *wifi_bits[][5] = {
+	{wifi_s0_bits}, {wifi_s1_bits}, {wifi_s2_bits}, {wifi_s3_bits}, {wifi_s4_bits}
 };	
 
 #define temperature_image_width 13

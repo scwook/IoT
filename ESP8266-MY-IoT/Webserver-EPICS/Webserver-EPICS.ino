@@ -9,16 +9,15 @@ Ticker tickerWiFi;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-char *ssid = "scwook";
+//char *ssid = "scwook";
+//char *password = "07170619";
+
+char *ssid = "scwook-Pocket-Fi";
 char *password = "07170619";
 
 ESP8266WebServer WebServer(80);
 WiFiServer WifiServer(23);
 WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
-
-//#ifndef UNIT_TEST
-//#include <Arduino.h>
-//#endif
 
 // IR Sensor
 #include <IRremoteESP8266.h>
@@ -42,7 +41,7 @@ Adafruit_BME280 bme;
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3C, 4, 5);
+SSD1306 OLED(0x3D, 4, 5);
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
 unsigned int blueFontHeigh = 24;
@@ -56,7 +55,7 @@ boolean acState = false; // Air Conditioner state, ON: true, OFF: false
 boolean bmeState = false; // BME280 Sensor connection state, success: true, fail: false
 boolean oledState = false;
 
-int32_t rssi = 0;
+int8_t wifiStrength = 0;
 
 unsigned int count = 0; // For Air Conditioner auto control
 
@@ -73,7 +72,8 @@ void setup() {
 
   OLED.clear();
   OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
-  OLED.drawXbm(0, 48, wifi_width, wifi_height, *wifi_bits[0]);
+  OLED.setFont(ArialMT_Plain_10);
+  OLED.drawString(128 - OLED.getStringWidth("CONTROL"), 38, "CONTROL");
 
   //  OLED.setFont(ArialMT_Plain_24);
   //  OLED.drawString(0, 16, "Control");
@@ -81,11 +81,6 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-
-  //  while ( WiFi.status() != WL_CONNECTED) {
-  //    delay(500);
-  //    Serial.print(".");
-  //  }
 
   for (int i = 0; i < 10; i++) {
     if ( WiFi.status() == WL_CONNECTED ) {
@@ -96,8 +91,6 @@ void setup() {
     Serial.print(".");
     delay(500);
   }
-
-  tickerWiFi.attach(5, getRSSI);
 
   Serial.println("");
   if ( WiFi.status() == WL_CONNECTED ) {
@@ -114,6 +107,8 @@ void setup() {
     WifiServer.begin();
     WifiServer.setNoDelay(true);
     Serial.println("WiFi Server Started");
+
+    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial.println("WiFi connection Failed");
@@ -130,10 +125,23 @@ void setup() {
 }
 
 void getRSSI() {
-  rssi = WiFi.RSSI();
+  int8_t rssi = WiFi.RSSI();
 
-  Serial.print("RSSI = ");
-  Serial.println(rssi);
+  if (rssi > -55 ) {
+    wifiStrength = 4;
+  }
+  else if ( rssi > -65 && rssi <= -55 ) {
+    wifiStrength = 3;
+  }
+  else if ( rssi > -75 && rssi <= -65 ) {
+    wifiStrength = 2;
+  }
+  else if ( rssi > -85 && rssi <= -75 ) {
+    wifiStrength = 1;
+  }
+  else {
+    wifiStrength = 0;
+  }
 }
 
 void handleRoot() {
@@ -163,10 +171,24 @@ void handleRoot() {
   message += "<html>";
   message += "<body>";
   message += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0\">";
-  message += "Temperature : ";
+  message += "<figure style=\"float:left;margin-right:0%;margin-bottom:0.5em\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/temperature_130x240.png\" width=\"65\" height=\"120\">";
+  message += "<figcaption style=\"text-align:center;font-size:200%\">";
   message += temperature;
-  message += ", Humidity : ";
+  message += "</figcaption>";
+  message += "</figure>";
+  message += "<figure style=\"float:left;margin-right:0%;margin-bottom:0.5em\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/humidity_130x240.png\" width=\"65\" height=\"120\" >";
+  message += "<figcaption style=\"text-align:center;font-size:200%\">";
   message += humidity;
+  message += "</figcaption>";
+  message += "</figure>";
+
+  message += "<p style=\"clear:both\">";
+  //  message += "Temperature : ";
+//  message += temperature;
+  //  message += ", Humidity : ";
+//  message += humidity;
 
   message += "<br />";
   message += "Count ";
@@ -200,16 +222,6 @@ void handleONOFF() {
     else {
       irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
     }
-
-    //    String message = "";
-    //    message += "<html>";
-    //    message += "<body>";
-    //    message += "Air Conditioner is ";
-    //    message += (state ? "ON." : "OFF.");
-    //    message += "</body>";
-    //    message += "</html>";
-    //
-    //    server.send(200, "text/html", message);
   }
 }
 
@@ -352,21 +364,18 @@ void loop() {
     OLED.drawString(0, 0, t);
     OLED.drawString(0, 0 + blueFontHeigh, h);
     //  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
-    OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[count]);
+    OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[wifiStrength]);
 
     //    OLED.setFont(ArialMT_Plain_10);
+    //    String p = String(rssi);
+    //    OLED.drawString(34, 52, p);
+
     //    OLED.drawString(0, 56, "Hellow World");
     //    OLED.drawFastImage(112, 2, 8, 16, Bat816);
 
     OLED.display();
 
     delay(500);
-    count += 1;
-
-
-    if( count > 3 ) {
-      count = 0;
-    }
   }
 
   if (wifiConnection) {
@@ -375,7 +384,7 @@ void loop() {
     processWiFiClient(temperature, humidity, pressure);
   }
 
-//  Serial.println("Loop End");
+  //  Serial.println("Loop End");
 
   delay(500);
 }
