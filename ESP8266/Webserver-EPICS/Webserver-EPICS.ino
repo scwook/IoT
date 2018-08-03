@@ -1,5 +1,4 @@
 #include <Ticker.h>
-
 Ticker tickerWiFi;
 
 // Network
@@ -9,11 +8,11 @@ Ticker tickerWiFi;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-//char *ssid = "scwook";
-//char *password = "07170619";
-
-char *ssid = "scwook-Pocket-Fi";
+char *ssid = "scwook";
 char *password = "07170619";
+
+//char *ssid = "scwook-Pocket-Fi";
+//char *password = "07170619";
 
 ESP8266WebServer WebServer(80);
 WiFiServer WifiServer(23);
@@ -41,7 +40,7 @@ Adafruit_BME280 bme;
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3D, 4, 5);
+SSD1306 OLED(0x3C, 4, 5);
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
 unsigned int blueFontHeigh = 24;
@@ -49,9 +48,11 @@ unsigned int blueFontHeigh = 24;
 //#define SEALEVELPRESSURE_HPA (1013.25)
 
 // User Define Variable
+#define AC_ON   true
+#define AC_OFF  false
 
 boolean wifiConnection = false;
-boolean acState = false; // Air Conditioner state, ON: true, OFF: false
+boolean acState = AC_OFF; // Air Conditioner state, ON: true, OFF: false
 boolean bmeState = false; // BME280 Sensor connection state, success: true, fail: false
 boolean oledState = false;
 
@@ -186,9 +187,9 @@ void handleRoot() {
 
   message += "<p style=\"clear:both\">";
   //  message += "Temperature : ";
-//  message += temperature;
+  //  message += temperature;
   //  message += ", Humidity : ";
-//  message += humidity;
+  //  message += humidity;
 
   message += "<br />";
   message += "Count ";
@@ -309,34 +310,34 @@ void processWiFiClient(float t, float h, float p) {
 }
 
 void airConAutoControl(float t) {
-  if (t > 30.0) {
-    if (count > 60) {
-      if (!acState) {
-        irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-        acState = true;
-        count = 0;
-      }
-    }
-    else {
-      count += 1;
-    }
-
-  }
-  else if (t < 28.0) {
-    if (count > 60) {
-      if (acState) {
-        irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
-        acState = false;
-        count = 0;
-      }
-    }
-    else {
-      count += 1;
-    }
-  }
-  else {
-    count = 0;
-  }
+  //  if (t > 30.0) {
+  //    if (count > 60) {
+  //      if (!acState) {
+  //        irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+  //        acState = true;
+  //        count = 0;
+  //      }
+  //    }
+  //    else {
+  //      count += 1;
+  //    }
+  //
+  //  }
+  //  else if (t < 28.0) {
+  //    if (count > 60) {
+  //      if (acState) {
+  //        irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
+  //        acState = false;
+  //        count = 0;
+  //      }
+  //    }
+  //    else {
+  //      count += 1;
+  //    }
+  //  }
+  //  else {
+  //    count = 0;
+  //  }
 }
 
 void loop() {
@@ -366,7 +367,9 @@ void loop() {
     //  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
     OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[wifiStrength]);
 
-    //    OLED.setFont(ArialMT_Plain_10);
+    OLED.setFont(ArialMT_Plain_10);
+    OLED.drawString(24, 52, String(count));
+
     //    String p = String(rssi);
     //    OLED.drawString(34, 52, p);
 
@@ -375,17 +378,33 @@ void loop() {
 
     OLED.display();
 
-    delay(500);
   }
+
+  delay(500);
 
   if (wifiConnection) {
     WebServer.handleClient();
-    //  airConAutoControl(temperature);
     processWiFiClient(temperature, humidity, pressure);
   }
+
+  //  airConAutoControl();
 
   //  Serial.println("Loop End");
 
   delay(500);
+
+  if (count > 10800) {
+    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+    delay(1000);
+    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
+
+    //    Serial.println("AC ON");
+    //    Serial.println("OFF Reservation");
+
+    count = 0;
+  }
+
+  count += 1;
+  //  Serial.println(count);
 }
 
