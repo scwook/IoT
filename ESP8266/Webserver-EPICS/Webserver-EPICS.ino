@@ -40,7 +40,7 @@ Adafruit_BME280 bme;
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3C, 4, 5);
+SSD1306 OLED(0x3D, 4, 5);
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
 unsigned int blueFontHeigh = 24;
@@ -122,7 +122,7 @@ void setup() {
 
   irsend.begin();
 
-  delay(3000);
+  delay(1500);
 }
 
 void getRSSI() {
@@ -186,10 +186,6 @@ void handleRoot() {
   message += "</figure>";
 
   message += "<p style=\"clear:both\">";
-  //  message += "Temperature : ";
-  //  message += temperature;
-  //  message += ", Humidity : ";
-  //  message += humidity;
 
   message += "<br />";
   message += "Count ";
@@ -200,18 +196,16 @@ void handleRoot() {
   message += (acState ? "ON" : "OFF");
 
   message += "<br />";
-  message += "<FORM method=\"get\" action=\"/\">";
-  message += "<P><INPUT type=\"radio\" name=\"ACstatus\" value=\"1\">Turn ON";
-  message += "<P><INPUT type=\"radio\" name=\"ACstatus\" value=\"0\">Turn OFF";
-  message += "<P><INPUT type=\"submit\" value=\"Submit\"> </FORM>";
+  message += "<form method=\"get\" action=\"/\">";
+  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
+  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%;margin:10px\" value=\"0\">OFF</button>";
+  message += "</form >";
 
   message += "</body>";
   message += "</html>";
 
   WebServer.send(200, "text/html", message);
 }
-
-
 
 void handleONOFF() {
   if (WebServer.argName(0) == "ACstatus") {
@@ -289,15 +283,15 @@ void processWiFiClient(float t, float h, float p) {
             char val[10];
 
             if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", t);
+              sprintf(val, " % f", t);
               WifiServerClients[i].write(val);
             }
             else if (strcmp("getHumidity", cmdBuffer) == 0 )  {
-              sprintf(val, "%f", h);
+              sprintf(val, " % f", h);
               WifiServerClients[i].write(val);
             }
             else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", p);
+              sprintf(val, " % f", p);
               WifiServerClients[i].write(val);
             }
 
