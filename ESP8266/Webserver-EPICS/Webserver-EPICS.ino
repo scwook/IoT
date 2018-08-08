@@ -168,38 +168,39 @@ void handleRoot() {
     }
   }
 
+  String t = String(temperature) + "&#176" + "C";
+  String h = String(humidity) + "&#37";
   String message = "";
   message += "<html>";
   message += "<body>";
+  message += "<meta charset=\"UTF-8\">";
   message += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0\">";
-  message += "<figure style=\"float:left;margin-right:0%;margin-bottom:0.5em\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/temperature_130x240.png\" width=\"65\" height=\"120\">";
-  message += "<figcaption style=\"text-align:center;font-size:200%\">";
-  message += temperature;
-  message += "</figcaption>";
-  message += "</figure>";
-  message += "<figure style=\"float:left;margin-right:0%;margin-bottom:0.5em\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/humidity_130x240.png\" width=\"65\" height=\"120\" >";
-  message += "<figcaption style=\"text-align:center;font-size:200%\">";
-  message += humidity;
-  message += "</figcaption>";
-  message += "</figure>";
-
-  message += "<p style=\"clear:both\">";
-
-  message += "<br />";
-  message += "Count ";
-  message += count;
-
-  message += "<br />";
-  message += "Air Conditioner is ";
-  message += (acState ? "ON" : "OFF");
-
-  message += "<br />";
+  message += "<div style=\"position:relative;width:375px;height:667px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/web-remote-controller_bg.png\" style=\"width:100%\">";
+  message += "<div style=\"position:absolute;top:80px;left:10px;font-size:40px\">" + t + "</div>";
+  message += "<div style=\"position:absolute;top:80px;right:10px;font-size:40px\">" + h + "</div>";
   message += "<form method=\"get\" action=\"/\">";
-  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
-  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
+  message += "<button name=\"ACstatus\" type=\"submit\" style=\"position:absolute;bottom:50%;left:50%;background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
+//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
   message += "</form >";
+  message += "</div>";
+//  message += temperature;
+//
+//  message += humidity;
+//
+//  message += "<br />";
+//  message += "Count ";
+//  message += count;
+//
+//  message += "<br />";
+//  message += "Air Conditioner is ";
+//  message += (acState ? "ON" : "OFF");
+
+//  message += "<br />";
+//  message += "<form method=\"get\" action=\"/\">";
+//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
+//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
+//  message += "</form >";
 
   message += "</body>";
   message += "</html>";
@@ -374,10 +375,9 @@ void loop() {
 
   }
 
-  delay(500);
-
   if (wifiConnection) {
     WebServer.handleClient();
+    delay(500);
     processWiFiClient(temperature, humidity, pressure);
   }
 
@@ -387,16 +387,16 @@ void loop() {
 
   delay(500);
 
-//  if (count > 10800) {
-//    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-//    delay(1000);
-//    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
-//
-//    //    Serial.println("AC ON");
-//    //    Serial.println("OFF Reservation");
-//
-//    count = 0;
-//  }
+  //  if (count > 10800) {
+  //    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+  //    delay(1000);
+  //    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
+  //
+  //    //    Serial.println("AC ON");
+  //    //    Serial.println("OFF Reservation");
+  //
+  //    count = 0;
+  //  }
 
   count += 1;
   //  Serial.println(count);
