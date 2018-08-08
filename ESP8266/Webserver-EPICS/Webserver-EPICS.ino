@@ -198,7 +198,7 @@ void handleRoot() {
   message += "<br />";
   message += "<form method=\"get\" action=\"/\">";
   message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
-  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%;margin:10px\" value=\"0\">OFF</button>";
+  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
   message += "</form >";
 
   message += "</body>";
@@ -387,16 +387,16 @@ void loop() {
 
   delay(500);
 
-  if (count > 10800) {
-    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-    delay(1000);
-    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
-
-    //    Serial.println("AC ON");
-    //    Serial.println("OFF Reservation");
-
-    count = 0;
-  }
+//  if (count > 10800) {
+//    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+//    delay(1000);
+//    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
+//
+//    //    Serial.println("AC ON");
+//    //    Serial.println("OFF Reservation");
+//
+//    count = 0;
+//  }
 
   count += 1;
   //  Serial.println(count);
