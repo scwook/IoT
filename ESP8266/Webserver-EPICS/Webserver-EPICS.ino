@@ -48,13 +48,15 @@ unsigned int blueFontHeigh = 24;
 //#define SEALEVELPRESSURE_HPA (1013.25)
 
 // User Define Variable
-#define AC_ON   true
-#define AC_OFF  false
+#define ON   true
+#define OFF  false
 
 boolean wifiConnection = false;
-boolean acState = AC_OFF; // Air Conditioner state, ON: true, OFF: false
-boolean bmeState = false; // BME280 Sensor connection state, success: true, fail: false
-boolean oledState = false;
+boolean acPower     = OFF;    // Air Conditioner state, ON: true, OFF: false
+boolean bmeState    = false;  // BME280 Sensor connection state, success: true, fail: false
+boolean oledState   = false;
+boolean sleepMode   = false;
+boolean vendorMode  = false;  // Remote Controller Vendor, SAMSUNG: false, LG: true;
 
 int8_t wifiStrength = 0;
 
@@ -155,52 +157,69 @@ void handleRoot() {
     WebServer.send(200, "text/plain", "Error in reading sensor.");
   }
 
-  if (WebServer.argName(0) == "ACstatus") {
-    int state = WebServer.arg(0).toInt();
+  if (WebServer.argName(0) == "powerOnOff") {
+    //    int state = WebServer.arg(0).toInt();
 
-    if (state) {
-      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-      acState = true;
+    if (acPower) {
+      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
+      acPower = OFF;
     }
     else {
-      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
-      acState = false;
+      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+      acPower = ON;
     }
+  }
+  else if (WebServer.argName(0) == "changeVendor") {
+    if (vendorMode) { // LG
+      vendorMode = false;
+    }
+    else { // SAMSUNG
+      vendorMode = true;
+    }
+  }
+  else if (WebServer.argName(0) == "sleepOn") {
+    sleepMode = true;
+  }
+  else if (WebServer.argName(0) == "sleepOff") {
+    sleepMode = false;
   }
 
   String t = String(temperature) + "&#176" + "C";
   String h = String(humidity) + "&#37";
   String message = "";
+  message += "<!DOCTYPE html>";
   message += "<html>";
   message += "<body>";
   message += "<meta charset=\"UTF-8\">";
-  message += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0\">";
-  message += "<div style=\"position:relative;width:375px;height:667px\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/web-remote-controller_bg.png\" style=\"width:100%\">";
-  message += "<div style=\"position:absolute;top:80px;left:10px;font-size:40px\">" + t + "</div>";
-  message += "<div style=\"position:absolute;top:80px;right:10px;font-size:40px\">" + h + "</div>";
-  message += "<form method=\"get\" action=\"/\">";
-  message += "<button name=\"ACstatus\" type=\"submit\" style=\"position:absolute;bottom:50%;left:50%;background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
-//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
-  message += "</form >";
-  message += "</div>";
-//  message += temperature;
-//
-//  message += humidity;
-//
-//  message += "<br />";
-//  message += "Count ";
-//  message += count;
-//
-//  message += "<br />";
-//  message += "Air Conditioner is ";
-//  message += (acState ? "ON" : "OFF");
+  message += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">";
 
-//  message += "<br />";
-//  message += "<form method=\"get\" action=\"/\">";
-//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
-//  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
-//  message += "</form >";
+  message += "<div style=\"position:relative;display:block;margin-left:auto;margin-right:auto;width:50%\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/remote_controller_bg_320x900.png\" style=\"width:160px;height:450px\">";
+  message += "<div style=\"position:absolute;top:25px;left:20px;font-size:10px;color:#3366ff;font-family:sans-serif\">SAMSUNG</div>";
+  message += "<div style=\"position:absolute;top:25px;left:125px;font-size:10px;color:#808080;font-family:sans-serif\">LG</div>";
+
+  message += "<img src=\"https://scwook.github.io/images/etc/snow_white_46x46.png\" style=\"position:absolute;top:100px;left:30px;width:23px;height:23px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/sleep_darkgray_46x46.png\" style=\"position:absolute;top:100px;left:110px;width:23px;height:23px\">";
+
+  message += "<img src=\"https://scwook.github.io/images/etc/temperature_color_86x144.png\" style=\"position:absolute;top:175px;left:20px;width:43px;height:72px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/humidity_color_86x144.png\" style=\"position:absolute;top:175px;left:100px;width:43px;height:72px\" >";
+
+  message += "<div style=\"position:absolute;top:250px;left:20px;font-size:15px;color:white;font-family:sans-serif\">" + t + "</div>";
+  message += "<div style=\"position:absolute;top:250px;left:100px;font-size:15px;color:white;font-family:sans-serif\">" + h + "</div>";
+
+  message += "<form method=\"get\" action=\"/\">";
+  message += "<button name=\"powerOnOff\" type=\"submit\" style=\"position:absolute;bottom:75px;left:45px;border:none;background-color:Transparent\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/power_green_88x100.png\" style=\"width:44px;height:50px\"></button>";
+  message += "<button name=\"changeVendor\" type=\"submit\" style=\"position:absolute;bottom:15px;left:55px;border:none;background-color:Transparent\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/change_white_50x44.png\" style=\"width:25px;height:22px\"></button>";
+  message += "<button name=\"sleepOn\" type=\"submit\" style=\"position:absolute;bottom:21px;left:15px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">ON</button>";
+  message += "<button name=\"sleepOff\" type=\"submit\" style=\"position:absolute;bottom:21px;left:110px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">OFF</button>";
+  message += "</form>";
+  message += "</div>";
+
+  //  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
+  //  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
+  //  message += "</form >";
 
   message += "</body>";
   message += "</html>";
@@ -398,7 +417,7 @@ void loop() {
   //    count = 0;
   //  }
 
-  count += 1;
+  //  count += 1;
   //  Serial.println(count);
 }
 
