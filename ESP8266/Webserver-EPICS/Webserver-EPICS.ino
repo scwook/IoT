@@ -23,7 +23,8 @@ WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
 #include <IRsend.h>
 #include "IRCode.h"
 
-#define IR_LED 15  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
+#define IR_FREQ 38  // IR Frequency is 38kHz
+#define IR_LED  15  // ESP8266 GPIO pin to use. Recommended: 4 (D2).
 
 IRsend irsend(IR_LED);  // Set the GPIO to be used to sending the message.
 
@@ -59,8 +60,12 @@ boolean sleepMode   = false;
 boolean vendorMode  = false;  // Remote Controller Vendor, SAMSUNG: false, LG: true;
 
 int8_t wifiStrength = 0;
+unsigned int count  = 0; // For Air Conditioner auto control
 
-unsigned int count = 0; // For Air Conditioner auto control
+String acStateImage       = "snow_darkgray_46x46.png";    // Air Conditioner State Image, ON: white, OFF: darkgray
+String sleepStateImage    = "sleep_darkgray_46x46.png";   // Sleep Mode State Image, ON: white, OFF: darkgray
+String samsungVendorColor = "#FFFFFF";                    // Color, Selected: #FFFFFF, unselected: #808080
+String lgVendorColor      = "#808080";
 
 void setup() {
   // put your setup code here, to run once:
@@ -161,26 +166,48 @@ void handleRoot() {
     //    int state = WebServer.arg(0).toInt();
 
     if (acPower) {
-      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
+      if (vendorMode) { // LG
+        irsend.sendRaw(LG_AC_ONOFF, sizeof(LG_AC_ONOFF) / sizeof(LG_AC_ONOFF[0]), IR_FREQ);
+
+      }
+      else { // SAMSUNG
+        irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), IR_FREQ);
+
+      }
+
+      acStateImage = "snow_darkgray_46x46.png";
       acPower = OFF;
     }
     else {
-      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+      if (vendorMode) { // LG
+        irsend.sendRaw(LG_AC_ONOFF, sizeof(LG_AC_ONOFF) / sizeof(LG_AC_ONOFF[0]), IR_FREQ);
+      }
+      else { // SAMSUNG
+        irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), IR_FREQ);
+      }
+
+      acStateImage = "snow_white_46x46.png";
       acPower = ON;
     }
   }
   else if (WebServer.argName(0) == "changeVendor") {
     if (vendorMode) { // LG
+      samsungVendorColor = "#FFFFFF";
+      lgVendorColor = "#808080";
       vendorMode = false;
     }
     else { // SAMSUNG
+      samsungVendorColor = "#808080";
+      lgVendorColor = "#FFFFFF";
       vendorMode = true;
     }
   }
   else if (WebServer.argName(0) == "sleepOn") {
+    sleepStateImage = "sleep_white_46x46.png";
     sleepMode = true;
   }
   else if (WebServer.argName(0) == "sleepOff") {
+    sleepStateImage = "sleep_darkgray_46x46.png";
     sleepMode = false;
   }
 
@@ -195,11 +222,11 @@ void handleRoot() {
 
   message += "<div style=\"position:relative;display:block;margin-left:auto;margin-right:auto;width:50%\">";
   message += "<img src=\"https://scwook.github.io/images/etc/remote_controller_bg_320x900.png\" style=\"width:160px;height:450px\">";
-  message += "<div style=\"position:absolute;top:25px;left:20px;font-size:10px;color:#3366ff;font-family:sans-serif\">SAMSUNG</div>";
-  message += "<div style=\"position:absolute;top:25px;left:125px;font-size:10px;color:#808080;font-family:sans-serif\">LG</div>";
+  message += "<div style=\"position:absolute;top:25px;left:20px;font-size:10px;color:" + samsungVendorColor + ";font-family:sans-serif\">SAMSUNG</div>";
+  message += "<div style=\"position:absolute;top:25px;left:125px;font-size:10px;color:" + lgVendorColor + ";font-family:sans-serif\">LG</div>";
 
-  message += "<img src=\"https://scwook.github.io/images/etc/snow_white_46x46.png\" style=\"position:absolute;top:100px;left:30px;width:23px;height:23px\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/sleep_darkgray_46x46.png\" style=\"position:absolute;top:100px;left:110px;width:23px;height:23px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/" + acStateImage + "\" style=\"position:absolute;top:100px;left:30px;width:23px;height:23px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/" + sleepStateImage + "\" style=\"position:absolute;top:100px;left:110px;width:23px;height:23px\">";
 
   message += "<img src=\"https://scwook.github.io/images/etc/temperature_color_86x144.png\" style=\"position:absolute;top:175px;left:20px;width:43px;height:72px\">";
   message += "<img src=\"https://scwook.github.io/images/etc/humidity_color_86x144.png\" style=\"position:absolute;top:175px;left:100px;width:43px;height:72px\" >";
@@ -406,18 +433,21 @@ void loop() {
 
   delay(500);
 
-  //  if (count > 10800) {
-  //    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-  //    delay(1000);
-  //    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
-  //
-  //    //    Serial.println("AC ON");
-  //    //    Serial.println("OFF Reservation");
-  //
-  //    count = 0;
-  //  }
+  if (count > 10800) {
+    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+    delay(1000);
+    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
 
-  //  count += 1;
+    //    Serial.println("AC ON");
+    //    Serial.println("OFF Reservation");
+
+    count = 0;
+  }
+
+  if (sleepMode) {
+    count += 1;
+  }
+  
   //  Serial.println(count);
 }
 
