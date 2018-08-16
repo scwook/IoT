@@ -41,7 +41,10 @@ Adafruit_BME280 bme;
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3D, 4, 5);
+#define OLED_RESET  13  // Reset Pin
+
+SSD1306 OLED(0x3C, 4, 5);
+
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
 unsigned int blueFontHeigh = 24;
@@ -62,6 +65,10 @@ boolean vendorMode  = false;  // Remote Controller Vendor, SAMSUNG: false, LG: t
 int8_t wifiStrength = 0;
 unsigned int count  = 0; // For Air Conditioner auto control
 
+float humidity = -1.0;
+float temperature = -1.0;
+float pressure = -1.0;
+
 String acStateImage       = "snow_darkgray_46x46.png";    // Air Conditioner State Image, ON: white, OFF: darkgray
 String sleepStateImage    = "sleep_darkgray_46x46.png";   // Sleep Mode State Image, ON: white, OFF: darkgray
 String samsungVendorColor = "#FFFFFF";                    // Color, Selected: #FFFFFF, unselected: #808080
@@ -71,6 +78,13 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
 
+  pinMode(OLED_RESET, OUTPUT);
+  digitalWrite(OLED_RESET, LOW);
+
+  delay(500);
+  digitalWrite(OLED_RESET, HIGH);
+
+  delay(500);
   oledState = OLED.init();
   if ( !oledState ) {
     Serial.println("Could not find a valid OLED, check wiring!");
@@ -107,7 +121,8 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     WebServer.on("/", handleRoot);
-    WebServer.on("/ac.cgi", handleONOFF);
+    WebServer.on( "/readEnvValue", handleEnvValue);
+    //    WebServer.on("/ac.cgi", handleONOFF);
 
     WebServer.begin();
     Serial.println("HTTP Server Started");
@@ -153,8 +168,8 @@ void getRSSI() {
 }
 
 void handleRoot() {
-  float humidity = bme.readHumidity();
-  float temperature = bme.readTemperature();
+  //  float humidity = bme.readHumidity();
+  //  float temperature = bme.readTemperature();
 
   //  server.sendHeader("Refresh", "3");
 
@@ -204,15 +219,20 @@ void handleRoot() {
   }
   else if (WebServer.argName(0) == "sleepOn") {
     sleepStateImage = "sleep_white_46x46.png";
+    OLED.displayOff();
     sleepMode = true;
   }
   else if (WebServer.argName(0) == "sleepOff") {
     sleepStateImage = "sleep_darkgray_46x46.png";
+    OLED.displayOn();
     sleepMode = false;
+    count = 0;
   }
 
   String t = String(temperature) + "&#176" + "C";
   String h = String(humidity) + "&#37";
+  String c = String(count);
+
   String message = "";
   message += "<!DOCTYPE html>";
   message += "<html>";
@@ -224,6 +244,8 @@ void handleRoot() {
   message += "<img src=\"https://scwook.github.io/images/etc/remote_controller_bg_320x900.png\" style=\"width:160px;height:450px\">";
   message += "<div style=\"position:absolute;top:25px;left:20px;font-size:10px;color:" + samsungVendorColor + ";font-family:sans-serif\">SAMSUNG</div>";
   message += "<div style=\"position:absolute;top:25px;left:125px;font-size:10px;color:" + lgVendorColor + ";font-family:sans-serif\">LG</div>";
+
+  message += "<div id=\"count\" style=\"position:absolute;top:50px;left:60px;font-size:10px;color:white;font-family:sans-serif\"></div>";
 
   message += "<img src=\"https://scwook.github.io/images/etc/" + acStateImage + "\" style=\"position:absolute;top:100px;left:30px;width:23px;height:23px\">";
   message += "<img src=\"https://scwook.github.io/images/etc/" + sleepStateImage + "\" style=\"position:absolute;top:100px;left:110px;width:23px;height:23px\">";
@@ -244,28 +266,42 @@ void handleRoot() {
   message += "</form>";
   message += "</div>";
 
-  //  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#9ACD32;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"1\">ON</button>";
-  //  message += "<button name=\"ACstatus\" type=\"submit\" style=\"background-color:#FF6347;border:none;color:white;font-size:20px;font-weight:bold;width:64px;height:64px;border-radius:50%\" value=\"0\">OFF</button>";
-  //  message += "</form >";
-
+  message += "<script>";
+  message += "var myVar=setInterval(readValue,1000);";
+//  message += "function timer(){document.getElementById(\"count\").innerHTML=\"" + t  + "\";}";
+  message += "function readValue(){";
+  message += "var xhttp=new XMLHttpRequest();";
+  message += "xhttp.onreadystatechange=function(){";
+  message += "if(this.readyState==4&&this.status==200){document.getElementById(\"count\").innerHTML=this.responseText}";
+  message += "};";
+  message += "xhttp.open(\"GET\",\"readEnvValue\",true);";
+  message += "xhttp.send();}";  
+  message += "</script>";
   message += "</body>";
   message += "</html>";
 
   WebServer.send(200, "text/html", message);
 }
 
-void handleONOFF() {
-  if (WebServer.argName(0) == "ACstatus") {
-    int state = WebServer.arg(0).toInt();
+void handleEnvValue() {
 
-    if (state) {
-      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-    }
-    else {
-      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
-    }
-  }
+  String t = String(temperature);
+
+  WebServer.send(200, "text/plane", t);
 }
+
+//void handleONOFF() {
+//  if (WebServer.argName(0) == "ACstatus") {
+//    int state = WebServer.arg(0).toInt();
+//
+//    if (state) {
+//      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), IR_FREQ);
+//    }
+//    else {
+//      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), IR_FREQ);
+//    }
+//  }
+//}
 
 char processCharInput(char* cmdBuffer, const char c)
 {
@@ -350,42 +386,11 @@ void processWiFiClient(float t, float h, float p) {
   }
 }
 
-void airConAutoControl(float t) {
-  //  if (t > 30.0) {
-  //    if (count > 60) {
-  //      if (!acState) {
-  //        irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
-  //        acState = true;
-  //        count = 0;
-  //      }
-  //    }
-  //    else {
-  //      count += 1;
-  //    }
-  //
-  //  }
-  //  else if (t < 28.0) {
-  //    if (count > 60) {
-  //      if (acState) {
-  //        irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), 38);
-  //        acState = false;
-  //        count = 0;
-  //      }
-  //    }
-  //    else {
-  //      count += 1;
-  //    }
-  //  }
-  //  else {
-  //    count = 0;
-  //  }
-}
-
 void loop() {
   // put your main code here, to run repeatedly:
-  float temperature = -1.0;
-  float humidity = -1.0;
-  float pressure = -1.0;
+//  float temperature = -1.0;
+//  float humidity = -1.0;
+//  float pressure = -1.0;
 
   if (oledState) {
     if (bmeState) {
@@ -434,9 +439,9 @@ void loop() {
   delay(500);
 
   if (count > 10800) {
-    irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), 38);
+    irsend.sendRaw(SAMSUNG_AC_ON29, sizeof(SAMSUNG_AC_ON29) / sizeof(SAMSUNG_AC_ON29[0]), IR_FREQ);
     delay(1000);
-    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), 38);
+    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), IR_FREQ);
 
     //    Serial.println("AC ON");
     //    Serial.println("OFF Reservation");
@@ -447,7 +452,7 @@ void loop() {
   if (sleepMode) {
     count += 1;
   }
-  
+
   //  Serial.println(count);
 }
 
