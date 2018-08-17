@@ -1,5 +1,6 @@
 #include <Ticker.h>
 Ticker tickerWiFi;
+Ticker tickerBME;
 
 // Network
 #include <ESP8266WiFi.h>
@@ -43,7 +44,7 @@ Adafruit_BME280 bme;
 
 #define OLED_RESET  13  // Reset Pin
 
-SSD1306 OLED(0x3C, 4, 5);
+SSD1306 OLED(0x3D, 4, 5);
 
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
@@ -69,6 +70,9 @@ float humidity = -1.0;
 float temperature = -1.0;
 float pressure = -1.0;
 
+String degree   = "\u00b0"; // Degree Unicode
+String percent  = "\u0025"; // Percent Unicode
+
 String acStateImage       = "snow_darkgray_46x46.png";    // Air Conditioner State Image, ON: white, OFF: darkgray
 String sleepStateImage    = "sleep_darkgray_46x46.png";   // Sleep Mode State Image, ON: white, OFF: darkgray
 String samsungVendorColor = "#FFFFFF";                    // Color, Selected: #FFFFFF, unselected: #808080
@@ -89,17 +93,17 @@ void setup() {
   if ( !oledState ) {
     Serial.println("Could not find a valid OLED, check wiring!");
   }
+  else {
+    OLED.clear();
+    OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
+    OLED.setFont(ArialMT_Plain_10);
+    OLED.drawString(128 - OLED.getStringWidth("CONTROL"), 38, "CONTROL");
 
-  //  OLED.flipScreenVertically();
-
-  OLED.clear();
-  OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
-  OLED.setFont(ArialMT_Plain_10);
-  OLED.drawString(128 - OLED.getStringWidth("CONTROL"), 38, "CONTROL");
-
-  //  OLED.setFont(ArialMT_Plain_24);
-  //  OLED.drawString(0, 16, "Control");
-  OLED.display();
+    //  OLED.setFont(ArialMT_Plain_24);
+    //  OLED.drawString(0, 16, "Control");
+    OLED.display();
+    //  OLED.flipScreenVertically();
+  }
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -122,7 +126,6 @@ void setup() {
 
     WebServer.on("/", handleRoot);
     WebServer.on( "/readEnvValue", handleEnvValue);
-    //    WebServer.on("/ac.cgi", handleONOFF);
 
     WebServer.begin();
     Serial.println("HTTP Server Started");
@@ -131,7 +134,7 @@ void setup() {
     WifiServer.setNoDelay(true);
     Serial.println("WiFi Server Started");
 
-    tickerWiFi.attach(5, getRSSI);
+    //    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial.println("WiFi connection Failed");
@@ -141,10 +144,13 @@ void setup() {
   if (!bmeState) {
     Serial.println("Could not find a valid BME280 sensor, check wiring!");
   }
+  else {
+    tickerBME.attach(1, readBME);
+  }
 
   irsend.begin();
 
-  delay(1500);
+  delay(500);
 }
 
 void getRSSI() {
@@ -165,6 +171,12 @@ void getRSSI() {
   else {
     wifiStrength = 0;
   }
+}
+
+void readBME() {
+  temperature = bme.readTemperature();
+  humidity = bme.readHumidity();
+  pressure = bme.readPressure();
 }
 
 void handleRoot() {
@@ -229,8 +241,8 @@ void handleRoot() {
     count = 0;
   }
 
-  String t = String(temperature) + "&#176" + "C";
-  String h = String(humidity) + "&#37";
+  String t = String(temperature, 1) + "&#176" + "C";
+  String h = String(humidity, 1) + "&#37";
   String c = String(count);
 
   String message = "";
@@ -241,41 +253,43 @@ void handleRoot() {
   message += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">";
 
   message += "<div style=\"position:relative;display:block;margin-left:auto;margin-right:auto;width:50%\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/remote_controller_bg_320x900.png\" style=\"width:160px;height:450px\">";
-  message += "<div style=\"position:absolute;top:25px;left:20px;font-size:10px;color:" + samsungVendorColor + ";font-family:sans-serif\">SAMSUNG</div>";
-  message += "<div style=\"position:absolute;top:25px;left:125px;font-size:10px;color:" + lgVendorColor + ";font-family:sans-serif\">LG</div>";
+  message += "<img src=\"https://scwook.github.io/images/etc/remote_controller_bg_380x1000.png\" style=\"width:180px;height:500px\">";
+  message += "<div style=\"position:absolute;top:45px;left:30px;font-size:10px;color:" + samsungVendorColor + ";font-family:sans-serif\">SAMSUNG</div>";
+  message += "<div style=\"position:absolute;top:45px;left:135px;font-size:10px;color:" + lgVendorColor + ";font-family:sans-serif\">LG</div>";
 
   message += "<div id=\"count\" style=\"position:absolute;top:50px;left:60px;font-size:10px;color:white;font-family:sans-serif\"></div>";
 
-  message += "<img src=\"https://scwook.github.io/images/etc/" + acStateImage + "\" style=\"position:absolute;top:100px;left:30px;width:23px;height:23px\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/" + sleepStateImage + "\" style=\"position:absolute;top:100px;left:110px;width:23px;height:23px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/" + acStateImage + "\" style=\"position:absolute;top:120px;left:40px;width:23px;height:23px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/" + sleepStateImage + "\" style=\"position:absolute;top:120px;left:120px;width:23px;height:23px\">";
 
-  message += "<img src=\"https://scwook.github.io/images/etc/temperature_color_86x144.png\" style=\"position:absolute;top:175px;left:20px;width:43px;height:72px\">";
-  message += "<img src=\"https://scwook.github.io/images/etc/humidity_color_86x144.png\" style=\"position:absolute;top:175px;left:100px;width:43px;height:72px\" >";
+  message += "<img src=\"https://scwook.github.io/images/etc/temperature_color_86x144.png\" style=\"position:absolute;top:195px;left:30px;width:43px;height:72px\">";
+  message += "<img src=\"https://scwook.github.io/images/etc/humidity_color_86x144.png\" style=\"position:absolute;top:195px;left:110px;width:43px;height:72px\" >";
 
-  message += "<div style=\"position:absolute;top:250px;left:20px;font-size:15px;color:white;font-family:sans-serif\">" + t + "</div>";
-  message += "<div style=\"position:absolute;top:250px;left:100px;font-size:15px;color:white;font-family:sans-serif\">" + h + "</div>";
+  message += "<div id=\"temp\" style=\"position:absolute;top:270px;left:30px;font-size:15px;color:white;font-family:sans-serif\">" + t + "</div>";
+  message += "<div id=\"humi\" style=\"position:absolute;top:270px;left:115px;font-size:15px;color:white;font-family:sans-serif\">" + h + "</div>";
 
   message += "<form method=\"get\" action=\"/\">";
-  message += "<button name=\"powerOnOff\" type=\"submit\" style=\"position:absolute;bottom:75px;left:45px;border:none;background-color:Transparent\">";
+  message += "<button name=\"powerOnOff\" type=\"submit\" style=\"position:absolute;bottom:100px;left:55px;border:none;background-color:Transparent\">";
   message += "<img src=\"https://scwook.github.io/images/etc/power_green_88x100.png\" style=\"width:44px;height:50px\"></button>";
-  message += "<button name=\"changeVendor\" type=\"submit\" style=\"position:absolute;bottom:15px;left:55px;border:none;background-color:Transparent\">";
+  message += "<button name=\"changeVendor\" type=\"submit\" style=\"position:absolute;bottom:45px;left:65px;border:none;background-color:Transparent\">";
   message += "<img src=\"https://scwook.github.io/images/etc/change_white_50x44.png\" style=\"width:25px;height:22px\"></button>";
-  message += "<button name=\"sleepOn\" type=\"submit\" style=\"position:absolute;bottom:21px;left:15px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">ON</button>";
-  message += "<button name=\"sleepOff\" type=\"submit\" style=\"position:absolute;bottom:21px;left:110px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">OFF</button>";
+  message += "<button name=\"sleepOn\" type=\"submit\" style=\"position:absolute;bottom:51px;left:25px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">ON</button>";
+  message += "<button name=\"sleepOff\" type=\"submit\" style=\"position:absolute;bottom:51px;left:120px;border:none;background-color:Transparent;font-size:10px;color:white;font-family:sans-serif\">OFF</button>";
   message += "</form>";
   message += "</div>";
 
   message += "<script>";
   message += "var myVar=setInterval(readValue,1000);";
-//  message += "function timer(){document.getElementById(\"count\").innerHTML=\"" + t  + "\";}";
   message += "function readValue(){";
   message += "var xhttp=new XMLHttpRequest();";
   message += "xhttp.onreadystatechange=function(){";
-  message += "if(this.readyState==4&&this.status==200){document.getElementById(\"count\").innerHTML=this.responseText}";
+  message += "if(this.readyState==4&&this.status==200){";
+  message += "var jsonValue=JSON.parse(this.responseText);";
+  message += "document.getElementById(\"temp\").innerHTML=jsonValue.Temperature + \"&#176\" + \"C\";";
+  message += "document.getElementById(\"humi\").innerHTML=jsonValue.Humidity + \"&#37\";}";
   message += "};";
   message += "xhttp.open(\"GET\",\"readEnvValue\",true);";
-  message += "xhttp.send();}";  
+  message += "xhttp.send();}";
   message += "</script>";
   message += "</body>";
   message += "</html>";
@@ -285,23 +299,10 @@ void handleRoot() {
 
 void handleEnvValue() {
 
-  String t = String(temperature);
+  String jsonObject = "{\"Temperature\":" + String(temperature, 1) + ",\"Humidity\":" + String(humidity, 1) + "}";
 
-  WebServer.send(200, "text/plane", t);
+  WebServer.send(200, "text/plane", jsonObject);
 }
-
-//void handleONOFF() {
-//  if (WebServer.argName(0) == "ACstatus") {
-//    int state = WebServer.arg(0).toInt();
-//
-//    if (state) {
-//      irsend.sendRaw(SAMSUNG_AC_ON28, sizeof(SAMSUNG_AC_ON28) / sizeof(SAMSUNG_AC_ON28[0]), IR_FREQ);
-//    }
-//    else {
-//      irsend.sendRaw(SAMSUNG_AC_OFF, sizeof(SAMSUNG_AC_OFF) / sizeof(SAMSUNG_AC_OFF[0]), IR_FREQ);
-//    }
-//  }
-//}
 
 char processCharInput(char* cmdBuffer, const char c)
 {
@@ -387,22 +388,8 @@ void processWiFiClient(float t, float h, float p) {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-//  float temperature = -1.0;
-//  float humidity = -1.0;
-//  float pressure = -1.0;
-
   if (oledState) {
-    if (bmeState) {
-      temperature = bme.readTemperature();
-      humidity = bme.readHumidity();
-      pressure = bme.readPressure();
-    }
-
-    String degree = "\u00b0";
     String t = "T : " + String(temperature) + degree + "C";
-
-    String percent = "\u0025";
     String h = "H : " + String(humidity) + percent;
 
     OLED.clear();
@@ -423,35 +410,32 @@ void loop() {
     //    OLED.drawFastImage(112, 2, 8, 16, Bat816);
 
     OLED.display();
-
   }
 
   if (wifiConnection) {
     WebServer.handleClient();
-    delay(500);
+    //    delay(100);
     processWiFiClient(temperature, humidity, pressure);
   }
-
+  
   //  airConAutoControl();
 
   //  Serial.println("Loop End");
 
-  delay(500);
-
-  if (count > 10800) {
-    irsend.sendRaw(SAMSUNG_AC_ON29, sizeof(SAMSUNG_AC_ON29) / sizeof(SAMSUNG_AC_ON29[0]), IR_FREQ);
-    delay(1000);
-    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), IR_FREQ);
-
-    //    Serial.println("AC ON");
-    //    Serial.println("OFF Reservation");
-
-    count = 0;
-  }
-
-  if (sleepMode) {
-    count += 1;
-  }
+  //  if (count > 10800) {
+  //    irsend.sendRaw(SAMSUNG_AC_ON29, sizeof(SAMSUNG_AC_ON29) / sizeof(SAMSUNG_AC_ON29[0]), IR_FREQ);
+  //    delay(1000);
+  //    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), IR_FREQ);
+  //
+  //    //    Serial.println("AC ON");
+  //    //    Serial.println("OFF Reservation");
+  //
+  //    count = 0;
+  //  }
+  //
+  //  if (sleepMode) {
+  //    count += 1;
+  //  }
 
   //  Serial.println(count);
 }
