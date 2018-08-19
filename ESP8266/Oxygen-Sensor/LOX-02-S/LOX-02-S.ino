@@ -1,5 +1,6 @@
 #include <Ticker.h>
 Ticker tickerWiFi;
+Ticker tickerSensor;
 
 // LOX-02-S Oxygen Sensor Command Define
 #include "CommandDefine.h"
@@ -20,17 +21,21 @@ WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3D, 4, 5);
+SSD1306 OLED(0x3C, 12, 5);
 boolean oledState = false;
 
 // User Define Variable
 boolean wifiConnection = false;
 int8_t wifiStrength = 0;
 
-float ppO2_f = -1.0;
-float temp_f = -1.0;
-float pres_f = -1.0;
-float o2_f = -1.0;
+float ppO2        = -1.0;
+float temperature = -1.0;
+float pressure    = -1.0;
+float oxygen      = -1.0;
+
+String degree     = "\u00b0"; // Degree Unicode
+String percent    = "\u0025"; // Percent Unicode
+String subscript2 = "\u00b2"; // Subscript Number of 2
 
 void setup() {
   // put your setup code here, to run once:
@@ -38,22 +43,23 @@ void setup() {
 
   oledState = OLED.init();
   if ( !oledState ) {
-    Serial.println("Could not find a valid OLED, check wiring!");
+    Serial1.println("Could not find a valid OLED, check wiring!");
   }
+  else {
+    OLED.clear();
+    OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
+    OLED.display();
 
+    delay(2000);
+
+    OLED.clear();
+    OLED.setFont(ArialMT_Plain_24);
+    OLED.drawString(8, 4, "CONTROL");
+    OLED.display();
+  }
   //  OLED.flipScreenVertically();
 
-  OLED.clear();
-  OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
-  OLED.setFont(ArialMT_Plain_10);
-  OLED.drawString(128 - OLED.getStringWidth("CONTROL"), 38, "CONTROL");
-  OLED.display();
-
   Serial.begin(9600); // For Sensor Communication
-
-  while (!Serial) {
-    ;
-  }
 
   Serial.write(STREAM_MODE, sizeof(STREAM_MODE) / sizeof(STREAM_MODE[0]));
   delay(100);
@@ -71,7 +77,7 @@ void setup() {
     delay(500);
   }
 
-  Serial.println("");
+  Serial1.println("");
   if ( WiFi.status() == WL_CONNECTED ) {
     Serial1.println("WiFi connected");
     Serial1.print("IP address: ");
@@ -81,35 +87,60 @@ void setup() {
     WifiServer.setNoDelay(true);
     Serial1.println("WiFi Server Started");
 
-    tickerWiFi.attach(5, getRSSI);
+    //    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial1.println("WiFi connection Failed");
   }
 
-}
-
-void getRSSI() {
-  int8_t rssi = WiFi.RSSI();
-
-  if (rssi > -55 ) {
-    wifiStrength = 4;
-  }
-  else if ( rssi > -65 && rssi <= -55 ) {
-    wifiStrength = 3;
-  }
-  else if ( rssi > -75 && rssi <= -65 ) {
-    wifiStrength = 2;
-  }
-  else if ( rssi > -85 && rssi <= -75 ) {
-    wifiStrength = 1;
-  }
-  else {
-    wifiStrength = 0;
+  if (Serial.available() > 0) {
+    tickerSensor.attach(1, readSensor);
   }
 }
 
-void processWiFiClient(float ppO2, float t, float p, float o2) {
+//void getRSSI() {
+//  int8_t rssi = WiFi.RSSI();
+//
+//  if (rssi > -55 ) {
+//    wifiStrength = 4;
+//  }
+//  else if ( rssi > -65 && rssi <= -55 ) {
+//    wifiStrength = 3;
+//  }
+//  else if ( rssi > -75 && rssi <= -65 ) {
+//    wifiStrength = 2;
+//  }
+//  else if ( rssi > -85 && rssi <= -75 ) {
+//    wifiStrength = 1;
+//  }
+//  else {
+//    wifiStrength = 0;
+//  }
+//}
+
+void readSensor() {
+
+  //    Serial.write(REQ_O2, sizeof(REQ_O2) / sizeof(REQ_O2[0]));
+  String value = Serial.readStringUntil('\n');
+  //  delay(500);
+
+  if ( value.length() == 40 ) {
+    String pp    = value.substring(2, 8);
+    String temp  = value.substring(11, 16);
+    String pres  = value.substring(19, 23);
+    String o2    = value.substring(26, 32);
+    String error = value.substring(35, 39);
+
+    ppO2         = pp.toFloat();
+    temperature  = temp.toFloat();
+    pressure     = pres.toFloat();
+    oxygen       = o2.toFloat();
+
+    //
+  }
+}
+
+void processWiFiClient() {
   uint8_t i;
 
   //check if there are any new clients
@@ -153,15 +184,15 @@ void processWiFiClient(float ppO2, float t, float p, float o2) {
               WifiServerClients[i].write(val);
             }
             else if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", t);
+              sprintf(val, "%f", temperature);
               WifiServerClients[i].write(val);
             }
             else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", p);
+              sprintf(val, "%f", pressure);
               WifiServerClients[i].write(val);
             }
             else if (strcmp("getOxygen", cmdBuffer) == 0 )  {
-              sprintf(val, "%f", o2);
+              sprintf(val, "%f", oxygen);
               WifiServerClients[i].write(val);
             }
 
@@ -197,44 +228,21 @@ char processCharInput(char* cmdBuffer, const char c)
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+  if (oledState) {
+    String o2 = "O  : " + String(oxygen, 2) + percent;
+    OLED.clear();
+    OLED.setFont(ArialMT_Plain_24);
+    OLED.drawString(0, 4, o2);
+    OLED.drawString(22, 12, subscript2);
+    OLED.display();
+  }
 
-  if (Serial.available() > 0) {
-    //    Serial.write(REQ_O2, sizeof(REQ_O2) / sizeof(REQ_O2[0]));
-    String value = Serial.readStringUntil('\n');
-    delay(500);
+  delay(100);
 
-    if ( value.length() == 40 ) {
-      String ppO2 = value.substring(2, 8);
-      String temp = value.substring(11, 16);
-      String pres = value.substring(19, 23);
-      String o2 = value.substring(26, 32);
-      String error = value.substring(35, 39);
+  //    Serial1.println(oxygen);
 
-      ppO2_f = ppO2.toFloat();
-      temp_f = temp.toFloat();
-      pres_f = pres.toFloat();
-      o2_f = o2.toFloat();
-    }
-
-    if (oledState) {
-      OLED.clear();
-      OLED.setFont(ArialMT_Plain_16);
-//      OLED.drawString(0, 0, ppO2_f);
-      OLED.drawString(0, 10, String(temp_f));
-//      OLED.drawString(0, 20, pres_f);
-      OLED.drawString(0, 30, String(o2_f));
-//      OLED.drawString(0, 40, error);
-//      OLED.drawString(0, 50, value);
-
-      OLED.display();
-    }
-    
-    delay(500);
-
-    if (wifiConnection) {
-      processWiFiClient(ppO2_f, temp_f, pres_f, o2_f);
-    }
+  if (wifiConnection) {
+    processWiFiClient();
   }
 }
 
