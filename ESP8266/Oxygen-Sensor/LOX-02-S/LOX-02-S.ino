@@ -11,7 +11,8 @@ Ticker tickerSensor;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-char *ssid = "scwook";
+//char *ssid = "scwook";
+char *ssid = "scwook-Pocket-Fi";
 char *password = "07170619";
 
 WiFiServer WifiServer(23);

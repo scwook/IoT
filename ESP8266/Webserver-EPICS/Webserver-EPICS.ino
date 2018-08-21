@@ -9,10 +9,10 @@ Ticker tickerBME;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-char *ssid = "scwook";
+//char *ssid = "scwook";
 char *password = "07170619";
 
-//char *ssid = "scwook-Pocket-Fi";
+char *ssid = "scwook-Pocket-Fi";
 //char *password = "07170619";
 
 ESP8266WebServer WebServer(80);
@@ -44,7 +44,7 @@ Adafruit_BME280 bme;
 
 #define OLED_RESET  13  // Reset Pin
 
-SSD1306 OLED(0x3D, 4, 5);
+SSD1306 OLED(0x3C, 4, 5);
 
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
@@ -134,7 +134,7 @@ void setup() {
     WifiServer.setNoDelay(true);
     Serial.println("WiFi Server Started");
 
-    //    tickerWiFi.attach(5, getRSSI);
+    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial.println("WiFi connection Failed");
@@ -417,7 +417,7 @@ void loop() {
     //    delay(100);
     processWiFiClient(temperature, humidity, pressure);
   }
-  
+
   //  airConAutoControl();
 
   //  Serial.println("Loop End");
