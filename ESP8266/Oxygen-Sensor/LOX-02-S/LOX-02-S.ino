@@ -11,12 +11,13 @@ Ticker tickerSensor;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-//char *ssid = "scwook";
-char *ssid = "scwook-Pocket-Fi";
+char *ssid = "scwook";
+//char *ssid = "scwook-Pocket-Fi";
 char *password = "07170619";
 
 WiFiServer WifiServer(23);
-WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
+//WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
+WiFiClient client;
 
 // SSD1306 OLED
 #include "SSD1306.h"
@@ -40,6 +41,9 @@ String subscript2 = "\u00b2"; // Subscript Number of 2
 
 void setup() {
   // put your setup code here, to run once:
+  //  WiFi.mode( WIFI_OFF );
+  //  WiFi.forceSleepBegin();
+
   Serial1.begin(115200); // For Debug Message
 
   oledState = OLED.init();
@@ -68,13 +72,19 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  for (int i = 0; i < 10; i++) {
+  unsigned int count = 0;
+  for (int i = 0; i < 20; i++) {
     if ( WiFi.status() == WL_CONNECTED ) {
       wifiConnection = true;
       break;
     }
 
     Serial.print(".");
+    OLED.setFont(ArialMT_Plain_10);
+    OLED.drawString(count, 20, ".");
+    OLED.display();
+
+    count += 5;
     delay(500);
   }
 
@@ -88,7 +98,7 @@ void setup() {
     WifiServer.setNoDelay(true);
     Serial1.println("WiFi Server Started");
 
-    //    tickerWiFi.attach(5, getRSSI);
+    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial1.println("WiFi connection Failed");
@@ -99,25 +109,25 @@ void setup() {
   }
 }
 
-//void getRSSI() {
-//  int8_t rssi = WiFi.RSSI();
-//
-//  if (rssi > -55 ) {
-//    wifiStrength = 4;
-//  }
-//  else if ( rssi > -65 && rssi <= -55 ) {
-//    wifiStrength = 3;
-//  }
-//  else if ( rssi > -75 && rssi <= -65 ) {
-//    wifiStrength = 2;
-//  }
-//  else if ( rssi > -85 && rssi <= -75 ) {
-//    wifiStrength = 1;
-//  }
-//  else {
-//    wifiStrength = 0;
-//  }
-//}
+void getRSSI() {
+  int8_t rssi = WiFi.RSSI();
+
+  //  if (rssi > -55 ) {
+  //    wifiStrength = 4;
+  //  }
+  //  else if ( rssi > -65 && rssi <= -55 ) {
+  //    wifiStrength = 3;
+  //  }
+  //  else if ( rssi > -75 && rssi <= -65 ) {
+  //    wifiStrength = 2;
+  //  }
+  //  else if ( rssi > -85 && rssi <= -75 ) {
+  //    wifiStrength = 1;
+  //  }
+  //  else {
+  //    wifiStrength = 0;
+  //  }
+}
 
 void readSensor() {
 
@@ -141,69 +151,69 @@ void readSensor() {
   }
 }
 
-void processWiFiClient() {
-  uint8_t i;
-
-  //check if there are any new clients
-  if (WifiServer.hasClient()) {
-    for (i = 0; i < MAX_SRV_CLIENTS; i++) {
-      //find free/disconnected spot
-      if (!WifiServerClients[i] || !WifiServerClients[i].connected()) {
-        if (WifiServerClients[i]) {
-          WifiServerClients[i].stop();
-        }
-        WifiServerClients[i] = WifiServer.available();
-        Serial1.print("New client: "); Serial1.print(i);
-        break;
-      }
-    }
-    //no free/disconnected spot so reject
-    if (i == MAX_SRV_CLIENTS) {
-      WiFiClient WifiServerClients = WifiServer.available();
-      WifiServerClients.stop();
-      Serial1.println("Connection rejected ");
-    }
-  }
-  //check clients for data
-  for (i = 0; i < MAX_SRV_CLIENTS; i++) {
-    if (WifiServerClients[i] && WifiServerClients[i].connected()) {
-
-      if (WifiServerClients[i].available()) {
-
-        //get data from the telnet client and push it to the UART
-        static char cmdBuffer[CMDBUFFER_SIZE] = "";
-        char c;
-        while (WifiServerClients[i].available()) {
-          c = processCharInput(cmdBuffer, WifiServerClients[i].read());
-
-          if ( c == '\n' ) {
-            //            Serial.write(cmdBuffer);
-            char val[10];
-
-            if ( strcmp("getPartialPressure", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", ppO2);
-              WifiServerClients[i].write(val);
-            }
-            else if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", temperature);
-              WifiServerClients[i].write(val);
-            }
-            else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
-              sprintf(val, "%f", pressure);
-              WifiServerClients[i].write(val);
-            }
-            else if (strcmp("getOxygen", cmdBuffer) == 0 )  {
-              sprintf(val, "%f", oxygen);
-              WifiServerClients[i].write(val);
-            }
-
-            cmdBuffer[0] = 0;
-          }
-        }
-      }
-    }
-  }
-}
+//void processWiFiClient() {
+//  uint8_t i;
+//
+//  //check if there are any new clients
+//  if (WifiServer.hasClient()) {
+//    for (i = 0; i < MAX_SRV_CLIENTS; i++) {
+//      //find free/disconnected spot
+//      if (!WifiServerClients[i] || !WifiServerClients[i].connected()) {
+//        if (WifiServerClients[i]) {
+//          WifiServerClients[i].stop();
+//        }
+//        WifiServerClients[i] = WifiServer.available();
+//        Serial1.print("New client: "); Serial1.print(i);
+//        break;
+//      }
+//    }
+//    //no free/disconnected spot so reject
+//    if (i == MAX_SRV_CLIENTS) {
+//      WiFiClient WifiServerClients = WifiServer.available();
+//      WifiServerClients.stop();
+//      Serial1.println("Connection rejected ");
+//    }
+//  }
+//  //check clients for data
+//  for (i = 0; i < MAX_SRV_CLIENTS; i++) {
+//    if (WifiServerClients[i] && WifiServerClients[i].connected()) {
+//
+//      if (WifiServerClients[i].available()) {
+//
+//        //get data from the telnet client and push it to the UART
+//        static char cmdBuffer[CMDBUFFER_SIZE] = "";
+//        char c;
+//        while (WifiServerClients[i].available()) {
+//          c = processCharInput(cmdBuffer, WifiServerClients[i].read());
+//
+//          if ( c == '\n' ) {
+//            //            Serial.write(cmdBuffer);
+//            char val[10];
+//
+//            if ( strcmp("getPartialPressure", cmdBuffer) == 0 ) {
+//              sprintf(val, "%f", ppO2);
+//              WifiServerClients[i].write(val);
+//            }
+//            else if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
+//              sprintf(val, "%f", temperature);
+//              WifiServerClients[i].write(val);
+//            }
+//            else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
+//              sprintf(val, "%f", pressure);
+//              WifiServerClients[i].write(val);
+//            }
+//            else if (strcmp("getOxygen", cmdBuffer) == 0 )  {
+//              sprintf(val, "%f", oxygen);
+//              WifiServerClients[i].write(val);
+//            }
+//
+//            cmdBuffer[0] = 0;
+//          }
+//        }
+//      }
+//    }
+//  }
+//}
 
 char processCharInput(char* cmdBuffer, const char c)
 {
@@ -233,17 +243,59 @@ void loop() {
     String o2 = "O  : " + String(oxygen, 2) + percent;
     OLED.clear();
     OLED.setFont(ArialMT_Plain_24);
-    OLED.drawString(0, 4, o2);
-    OLED.drawString(22, 12, subscript2);
+    OLED.drawString(0, 2, o2);
+    OLED.drawString(22, 10, subscript2);
     OLED.display();
   }
 
-  delay(100);
+  //  delay(100);
 
-  //    Serial1.println(oxygen);
+  //      Serial1.println(oxygen);
 
   if (wifiConnection) {
-    processWiFiClient();
+    //          processWiFiClient();
+    wifiClient();
+
+  }
+}
+
+void wifiClient() {
+  uint8_t i;
+
+  if (WifiServer.hasClient()) {
+    client = WifiServer.available();
+  }
+
+  //check clients for data
+  if (client && client.available())  {
+    //get data from the telnet client and push it to the UART
+    static char cmdBuffer[CMDBUFFER_SIZE] = "";
+    char c;
+    c = processCharInput(cmdBuffer, client.read());
+
+    if ( c == '\n' ) {
+      //            Serial.write(cmdBuffer);
+      char val[10];
+
+      if ( strcmp("getPartialPressure", cmdBuffer) == 0 ) {
+        sprintf(val, "%f", ppO2);
+        client.write(val);
+      }
+      else if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
+        sprintf(val, "%f", temperature);
+        client.write(val);
+      }
+      else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
+        sprintf(val, "%f", pressure);
+        client.write(val);
+      }
+      else if (strcmp("getOxygen", cmdBuffer) == 0 )  {
+        sprintf(val, "%f", oxygen);
+        client.write(val);
+      }
+
+      cmdBuffer[0] = 0;
+    }
   }
 }
 

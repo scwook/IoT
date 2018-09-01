@@ -9,15 +9,14 @@ Ticker tickerBME;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-//char *ssid = "scwook";
+char *ssid = "scwook";
+//char *ssid = "scwook-Pocket-Fi";
 char *password = "07170619";
-
-char *ssid = "scwook-Pocket-Fi";
-//char *password = "07170619";
 
 ESP8266WebServer WebServer(80);
 WiFiServer WifiServer(23);
-WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
+//WiFiClient WifiServerClients[MAX_SRV_CLIENTS];
+WiFiClient client;
 
 // IR Sensor
 #include <IRremoteESP8266.h>
@@ -44,7 +43,7 @@ Adafruit_BME280 bme;
 
 #define OLED_RESET  13  // Reset Pin
 
-SSD1306 OLED(0x3C, 4, 5);
+SSD1306 OLED(0x3D, 4, 5);
 
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
@@ -78,6 +77,8 @@ String sleepStateImage    = "sleep_darkgray_46x46.png";   // Sleep Mode State Im
 String samsungVendorColor = "#FFFFFF";                    // Color, Selected: #FFFFFF, unselected: #808080
 String lgVendorColor      = "#808080";
 
+String wifiStatus = "";
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -108,7 +109,7 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 20; i++) {
     if ( WiFi.status() == WL_CONNECTED ) {
       wifiConnection = true;
       break;
@@ -133,8 +134,6 @@ void setup() {
     WifiServer.begin();
     WifiServer.setNoDelay(true);
     Serial.println("WiFi Server Started");
-
-    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial.println("WiFi connection Failed");
@@ -149,14 +148,45 @@ void setup() {
   }
 
   irsend.begin();
+  tickerWiFi.attach(5, checkWiFiConnection);
 
   delay(500);
 }
 
-void getRSSI() {
+void checkWiFiConnection() {
+
+  switch (WiFi.status()) {
+    case WL_IDLE_STATUS:
+      wifiStatus = "Idle Status";
+      break;
+
+    case WL_NO_SSID_AVAIL:
+      wifiStatus = "No SSID Availavle";
+      break;
+
+    case WL_CONNECTED:
+      wifiStatus = "Connected";
+      break;
+
+    case WL_CONNECT_FAILED:
+      wifiStatus = "Connection Failed";
+      break;
+
+    case WL_CONNECTION_LOST:
+      wifiStatus = "Connection Lost";
+      break;
+
+    case WL_DISCONNECTED:
+      wifiStatus = "Disconnected";
+      break;
+
+    default:
+      break;
+  }
+
   int8_t rssi = WiFi.RSSI();
 
-  if (rssi > -55 ) {
+  if (rssi > -55 && rssi <= 0 ) {
     wifiStrength = 4;
   }
   else if ( rssi > -65 && rssi <= -55 ) {
@@ -327,65 +357,65 @@ char processCharInput(char* cmdBuffer, const char c)
   return c;
 }
 
-void processWiFiClient(float t, float h, float p) {
-  uint8_t i;
-
-  //check if there are any new clients
-  if (WifiServer.hasClient()) {
-    for (i = 0; i < MAX_SRV_CLIENTS; i++) {
-      //find free/disconnected spot
-      if (!WifiServerClients[i] || !WifiServerClients[i].connected()) {
-        if (WifiServerClients[i]) {
-          WifiServerClients[i].stop();
-        }
-        WifiServerClients[i] = WifiServer.available();
-        Serial1.print("New client: "); Serial1.print(i);
-        break;
-      }
-    }
-    //no free/disconnected spot so reject
-    if (i == MAX_SRV_CLIENTS) {
-      WiFiClient WifiServerClients = WifiServer.available();
-      WifiServerClients.stop();
-      Serial1.println("Connection rejected ");
-    }
-  }
-  //check clients for data
-  for (i = 0; i < MAX_SRV_CLIENTS; i++) {
-    if (WifiServerClients[i] && WifiServerClients[i].connected()) {
-
-      if (WifiServerClients[i].available()) {
-
-        //get data from the telnet client and push it to the UART
-        static char cmdBuffer[CMDBUFFER_SIZE] = "";
-        char c;
-        while (WifiServerClients[i].available()) {
-          c = processCharInput(cmdBuffer, WifiServerClients[i].read());
-
-          if ( c == '\n' ) {
-            //            Serial.write(cmdBuffer);
-            char val[10];
-
-            if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
-              sprintf(val, " % f", t);
-              WifiServerClients[i].write(val);
-            }
-            else if (strcmp("getHumidity", cmdBuffer) == 0 )  {
-              sprintf(val, " % f", h);
-              WifiServerClients[i].write(val);
-            }
-            else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
-              sprintf(val, " % f", p);
-              WifiServerClients[i].write(val);
-            }
-
-            cmdBuffer[0] = 0;
-          }
-        }
-      }
-    }
-  }
-}
+//void processWiFiClient(float t, float h, float p) {
+//  uint8_t i;
+//
+//  //check if there are any new clients
+//  if (WifiServer.hasClient()) {
+//    for (i = 0; i < MAX_SRV_CLIENTS; i++) {
+//      //find free/disconnected spot
+//      if (!WifiServerClients[i] || !WifiServerClients[i].connected()) {
+//        if (WifiServerClients[i]) {
+//          WifiServerClients[i].stop();
+//        }
+//        WifiServerClients[i] = WifiServer.available();
+//        Serial1.print("New client: "); Serial1.print(i);
+//        break;
+//      }
+//    }
+//    //no free/disconnected spot so reject
+//    if (i == MAX_SRV_CLIENTS) {
+//      WiFiClient WifiServerClients = WifiServer.available();
+//      WifiServerClients.stop();
+//      Serial1.println("Connection rejected ");
+//    }
+//  }
+//  //check clients for data
+//  for (i = 0; i < MAX_SRV_CLIENTS; i++) {
+//    if (WifiServerClients[i] && WifiServerClients[i].connected()) {
+//
+//      if (WifiServerClients[i].available()) {
+//
+//        //get data from the telnet client and push it to the UART
+//        static char cmdBuffer[CMDBUFFER_SIZE] = "";
+//        char c;
+//        while (WifiServerClients[i].available()) {
+//          c = processCharInput(cmdBuffer, WifiServerClients[i].read());
+//
+//          if ( c == '\n' ) {
+//            //            Serial.write(cmdBuffer);
+//            char val[10];
+//
+//            if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
+//              sprintf(val, " % f", t);
+//              WifiServerClients[i].write(val);
+//            }
+//            else if (strcmp("getHumidity", cmdBuffer) == 0 )  {
+//              sprintf(val, " % f", h);
+//              WifiServerClients[i].write(val);
+//            }
+//            else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
+//              sprintf(val, " % f", p);
+//              WifiServerClients[i].write(val);
+//            }
+//
+//            cmdBuffer[0] = 0;
+//          }
+//        }
+//      }
+//    }
+//  }
+//}
 
 void loop() {
   if (oledState) {
@@ -401,7 +431,8 @@ void loop() {
     OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[wifiStrength]);
 
     OLED.setFont(ArialMT_Plain_10);
-    OLED.drawString(24, 52, String(count));
+    //    OLED.drawString(24, 52, String(count));
+    OLED.drawString(24, 52, wifiStatus);
 
     //    String p = String(rssi);
     //    OLED.drawString(34, 52, p);
@@ -413,9 +444,10 @@ void loop() {
   }
 
   if (wifiConnection) {
-    WebServer.handleClient();
+    //    WebServer.handleClient();
     //    delay(100);
-    processWiFiClient(temperature, humidity, pressure);
+    //    processWiFiClient(temperature, humidity, pressure);
+    wifiClient();
   }
 
   //  airConAutoControl();
@@ -438,5 +470,42 @@ void loop() {
   //  }
 
   //  Serial.println(count);
+}
+
+void wifiClient() {
+  uint8_t i;
+
+  if (WifiServer.hasClient()) {
+    client = WifiServer.available();
+  }
+
+  //check clients for data
+  if (client && client.available())  {
+    //get data from the telnet client and push it to the UART
+
+    static char cmdBuffer[CMDBUFFER_SIZE] = "";
+    char c;
+    c = processCharInput(cmdBuffer, client.read());
+
+    if ( c == '\n' ) {
+      //            Serial.write(cmdBuffer);
+      char val[10];
+
+      if ( strcmp("getTemperature", cmdBuffer) == 0 ) {
+        sprintf(val, " % f", temperature);
+        client.write(val);
+      }
+      else if (strcmp("getHumidity", cmdBuffer) == 0 )  {
+        sprintf(val, " % f", humidity);
+        client.write(val);
+      }
+      else if ( strcmp("getPressure", cmdBuffer) == 0 ) {
+        sprintf(val, " % f", pressure);
+        client.write(val);
+      }
+
+      cmdBuffer[0] = 0;
+    }
+  }
 }
 
