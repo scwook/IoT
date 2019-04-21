@@ -1,3 +1,9 @@
+// Battery Level
+#define BAT_EMPTY 0
+#define BAT_LOW   1
+#define BAT_HIGH  2
+#define BAT_FULL  3
+
 // ASCII CODE
 #define HEX_M		0x4D
 #define HEX_O		0x4F

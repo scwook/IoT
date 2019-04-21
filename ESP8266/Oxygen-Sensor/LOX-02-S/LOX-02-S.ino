@@ -1,6 +1,7 @@
 #include <Ticker.h>
 Ticker tickerWiFi;
 Ticker tickerSensor;
+Ticker tickerBattery;
 
 // LOX-02-S Oxygen Sensor Command Define
 #include "CommandDefine.h"
@@ -11,8 +12,8 @@ Ticker tickerSensor;
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
 
-char *ssid = "scwook";
-//char *ssid = "scwook-Pocket-Fi";
+//  char *ssid = "scwook";
+char *ssid = "scwook-Pocket-Fi";
 char *password = "07170619";
 
 WiFiServer WifiServer(23);
@@ -23,12 +24,21 @@ WiFiClient client;
 #include "SSD1306.h"
 #include "ImageCode.h"
 
-SSD1306 OLED(0x3C, 12, 5);
+#define OLED_RESET  13  // Reset Pin
+SSD1306 OLED(0x3C, 12, 14); // address, SDA(DIN), SCL(CLK)
+//SSD1306 OLED(0x3D, 12, 14);
+
+unsigned int yellowLineOffset = 16;
 boolean oledState = false;
 
 // User Define Variable
 boolean wifiConnection = false;
+int8_t wifiStatus = WL_DISCONNECTED;
 int8_t wifiStrength = 0;
+
+int8_t batteryLevel = 0;
+
+int8_t readCount = 0;
 
 float ppO2        = -1.0;
 float temperature = -1.0;
@@ -46,23 +56,30 @@ void setup() {
 
   Serial1.begin(115200); // For Debug Message
 
+  pinMode(OLED_RESET, OUTPUT);
+  digitalWrite(OLED_RESET, LOW);
+
+  delay(500);
+  digitalWrite(OLED_RESET, HIGH);
+
   oledState = OLED.init();
+  OLED.flipScreenVertically();
+
   if ( !oledState ) {
     Serial1.println("Could not find a valid OLED, check wiring!");
   }
   else {
     OLED.clear();
-    OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
+    OLED.drawXbm(0, yellowLineOffset, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
     OLED.display();
 
     delay(2000);
 
     OLED.clear();
     OLED.setFont(ArialMT_Plain_24);
-    OLED.drawString(8, 4, "CONTROL");
+    OLED.drawString(8, 16, "CONTROL");
     OLED.display();
   }
-  //  OLED.flipScreenVertically();
 
   Serial.begin(9600); // For Sensor Communication
 
@@ -81,7 +98,7 @@ void setup() {
 
     Serial.print(".");
     OLED.setFont(ArialMT_Plain_10);
-    OLED.drawString(count, 20, ".");
+    OLED.drawString(count, 48, ".");
     OLED.display();
 
     count += 5;
@@ -98,7 +115,6 @@ void setup() {
     WifiServer.setNoDelay(true);
     Serial1.println("WiFi Server Started");
 
-    tickerWiFi.attach(5, getRSSI);
   }
   else {
     Serial1.println("WiFi connection Failed");
@@ -107,12 +123,18 @@ void setup() {
   if (Serial.available() > 0) {
     tickerSensor.attach(1, readSensor);
   }
+
+  tickerWiFi.attach(5, checkWiFiConnection);
+  tickerBattery.attach(10, readBattery);
 }
 
-void getRSSI() {
-  int8_t rssi = WiFi.RSSI();
+void checkWiFiConnection() {
 
-  //  if (rssi > -55 ) {
+  wifiStatus = WiFi.status();
+
+  //  int8_t rssi = WiFi.RSSI();
+  //
+  //  if (rssi > -55 && rssi <= 0 ) {
   //    wifiStrength = 4;
   //  }
   //  else if ( rssi > -65 && rssi <= -55 ) {
@@ -148,6 +170,28 @@ void readSensor() {
     oxygen       = o2.toFloat();
 
     //
+  }
+
+  readCount += 1;
+  if (readCount > 3) {
+    readCount = 0;
+  }
+}
+
+void readBattery() {
+  int value = analogRead(A0);
+
+  if ( value < 800 ) {
+    batteryLevel = BAT_EMPTY;
+  }
+  else if ( value >= 800 && value < 850 ) {
+    batteryLevel = BAT_LOW;
+  }
+  else if ( value >= 850 && value < 900 ) {
+    batteryLevel = BAT_HIGH;
+  }
+  else if ( value >= 900 ) {
+    batteryLevel = BAT_FULL;
   }
 }
 
@@ -240,11 +284,42 @@ char processCharInput(char* cmdBuffer, const char c)
 
 void loop() {
   if (oledState) {
-    String o2 = "O  : " + String(oxygen, 2) + percent;
     OLED.clear();
+
+    // Draw wifi icon
+    if ( wifiStatus == WL_CONNECTED) {
+      OLED.drawXbm(0, 0, wifi_symbole_width, wifi_symbole_height, wifi_symbol_bits);
+      //OLED.drawXbm(50, 2, wifi_width, wifi_height, *wifi_bits[wifiStrength]);
+    }
+
+    // Draw EPICS connection icon
+    if (client.connected()) {
+      OLED.drawXbm(44, 0, epics_width, epics_height, epics_bits);
+    }
+
+    // Draw battery level icon
+    OLED.drawXbm(112, 2, battery_width, battery_height, *battery_bits[batteryLevel]);
+
+    // Draw oxygen icon
+    OLED.drawXbm(0, 19, scl_width, scl_height, scl_bits);
+    OLED.drawXbm(7, 29, data_reading_width, data_reading_height, *data_reading_bits[readCount]);
+
+    // Draw oxygen value
+    String o2 = String(oxygen, 2) + percent;
     OLED.setFont(ArialMT_Plain_24);
-    OLED.drawString(0, 2, o2);
-    OLED.drawString(22, 10, subscript2);
+    OLED.drawString(43, 26, o2);
+    //OLED.drawString(22, yellowLineOffset + 10, subscript2);
+
+    OLED.setFont(ArialMT_Plain_10);
+
+    // Draw thermometer icon
+    //OLED.drawXbm(70, 42, thermometer_width, thermometer_height, thermometer_bits);
+
+    // Draw temperature value
+    String t = String(int(temperature)) + degree + "C";
+    OLED.drawString(85, 0, t);
+
+    // Display all value
     OLED.display();
   }
 
@@ -255,8 +330,10 @@ void loop() {
   if (wifiConnection) {
     //          processWiFiClient();
     wifiClient();
-
   }
+
+  //delay(500);
+
 }
 
 void wifiClient() {
