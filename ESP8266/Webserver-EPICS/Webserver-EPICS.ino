@@ -1,6 +1,7 @@
 #include <Ticker.h>
 Ticker tickerWiFi;
 Ticker tickerBME;
+Ticker tickerSleep;
 
 // Network
 #include <ESP8266WiFi.h>
@@ -8,10 +9,13 @@ Ticker tickerBME;
 
 #define MAX_SRV_CLIENTS 1
 #define CMDBUFFER_SIZE 32
+#define SLEEP_TIME 10800 // Default time is 3h
 
-char *ssid = "scwook";
+//char *ssid = "scwook";
 //char *ssid = "scwook-Pocket-Fi";
-char *password = "07170619";
+//char *password = "07170619";
+char *ssid[3] = {"scwook", "scwook-Pocket-Fi", "raon_8_2.4g"};
+char *password[3] = {"07170619", "07170619", "raon123456"};
 
 ESP8266WebServer WebServer(80);
 WiFiServer WifiServer(23);
@@ -43,7 +47,7 @@ Adafruit_BME280 bme;
 
 #define OLED_RESET  13  // Reset Pin
 
-SSD1306 OLED(0x3D, 4, 5);
+SSD1306 OLED(0x3C, 4, 5);
 
 unsigned int yellowLineOffset = 16;
 unsigned int yellowFontHeigh = 0;
@@ -62,8 +66,9 @@ boolean oledState   = false;
 boolean sleepMode   = false;
 boolean vendorMode  = false;  // Remote Controller Vendor, SAMSUNG: false, LG: true;
 
+int8_t wifiStatus = WL_DISCONNECTED;
 int8_t wifiStrength = 0;
-unsigned int count  = 0; // For Air Conditioner auto control
+unsigned int sleepCount  =  SLEEP_TIME; // For Air Conditioner auto control
 
 float humidity = -1.0;
 float temperature = -1.0;
@@ -77,7 +82,8 @@ String sleepStateImage    = "sleep_darkgray_46x46.png";   // Sleep Mode State Im
 String samsungVendorColor = "#FFFFFF";                    // Color, Selected: #FFFFFF, unselected: #808080
 String lgVendorColor      = "#808080";
 
-String wifiStatus = "";
+String sleepTime = "03:00:00";
+//String wifiStatus = "";
 
 void setup() {
   // put your setup code here, to run once:
@@ -107,17 +113,46 @@ void setup() {
   }
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  //  WiFi.begin(ssid[0], password[0]);
 
-  for (int i = 0; i < 20; i++) {
-    if ( WiFi.status() == WL_CONNECTED ) {
+  unsigned int count = 0;
+  OLED.setFont(ArialMT_Plain_10);
+
+  for (int i = 0; i < 3; i++) {
+    WiFi.begin(ssid[i], password[i]);
+
+    OLED.clear();
+    OLED.drawXbm(0, 0, raon_symbol_width, raon_symbol_height, raon_symbol_bits);
+    OLED.setFont(ArialMT_Plain_10);
+    OLED.drawString(128 - OLED.getStringWidth("CONTROL"), 38, "CONTROL");
+    
+    String strTmp = "Connecting to " + String(ssid[i]);
+    OLED.drawString(0, 48, strTmp);
+    OLED.display();
+    
+    delay(7000);
+
+    if ( WiFi.status() == WL_CONNECTED) {
       wifiConnection = true;
       break;
     }
-
-    Serial.print(".");
-    delay(500);
   }
+
+//  for (int i = 0; i < 20; i++) {
+//    if ( WiFi.status() == WL_CONNECTED ) {
+//      wifiConnection = true;
+//      break;
+//    }
+//
+//    OLED.setFont(ArialMT_Plain_10);
+//    String strTmp = "Connecting to " + String(ssid[0]);
+//    OLED.drawString(0, 48, strTmp);
+//    OLED.display();
+//
+//    count += 1;
+//    Serial.print(".");
+//    delay(1000);
+//  }
 
   Serial.println("");
   if ( WiFi.status() == WL_CONNECTED ) {
@@ -155,52 +190,54 @@ void setup() {
 
 void checkWiFiConnection() {
 
-  switch (WiFi.status()) {
-    case WL_IDLE_STATUS:
-      wifiStatus = "Idle Status";
-      break;
+  wifiStatus = WiFi.status();
 
-    case WL_NO_SSID_AVAIL:
-      wifiStatus = "No SSID Availavle";
-      break;
+  //  switch (WiFi.status()) {
+  //    case WL_IDLE_STATUS:
+  //      wifiStatus = "Idle Status";
+  //      break;
+  //
+  //    case WL_NO_SSID_AVAIL:
+  //      wifiStatus = "No SSID Availavle";
+  //      break;
+  //
+  //    case WL_CONNECTED:
+  //      wifiStatus = "Connected";
+  //      break;
+  //
+  //    case WL_CONNECT_FAILED:
+  //      wifiStatus = "Connection Failed";
+  //      break;
+  //
+  //    case WL_CONNECTION_LOST:
+  //      wifiStatus = "Connection Lost";
+  //      break;
+  //
+  //    case WL_DISCONNECTED:
+  //      wifiStatus = "Disconnected";
+  //      break;
+  //
+  //    default:
+  //      break;
+  //  }
 
-    case WL_CONNECTED:
-      wifiStatus = "Connected";
-      break;
-
-    case WL_CONNECT_FAILED:
-      wifiStatus = "Connection Failed";
-      break;
-
-    case WL_CONNECTION_LOST:
-      wifiStatus = "Connection Lost";
-      break;
-
-    case WL_DISCONNECTED:
-      wifiStatus = "Disconnected";
-      break;
-
-    default:
-      break;
-  }
-
-  int8_t rssi = WiFi.RSSI();
-
-  if (rssi > -55 && rssi <= 0 ) {
-    wifiStrength = 4;
-  }
-  else if ( rssi > -65 && rssi <= -55 ) {
-    wifiStrength = 3;
-  }
-  else if ( rssi > -75 && rssi <= -65 ) {
-    wifiStrength = 2;
-  }
-  else if ( rssi > -85 && rssi <= -75 ) {
-    wifiStrength = 1;
-  }
-  else {
-    wifiStrength = 0;
-  }
+  //  int8_t rssi = WiFi.RSSI();
+  //
+  //  if (rssi > -55 && rssi <= 0 ) {
+  //    wifiStrength = 4;
+  //  }
+  //  else if ( rssi > -65 && rssi <= -55 ) {
+  //    wifiStrength = 3;
+  //  }
+  //  else if ( rssi > -75 && rssi <= -65 ) {
+  //    wifiStrength = 2;
+  //  }
+  //  else if ( rssi > -85 && rssi <= -75 ) {
+  //    wifiStrength = 1;
+  //  }
+  //  else {
+  //    wifiStrength = 0;
+  //  }
 }
 
 void readBME() {
@@ -263,17 +300,19 @@ void handleRoot() {
     sleepStateImage = "sleep_white_46x46.png";
     OLED.displayOff();
     sleepMode = true;
+    tickerSleep.attach(1, airConSleepTimer);
   }
   else if (WebServer.argName(0) == "sleepOff") {
     sleepStateImage = "sleep_darkgray_46x46.png";
     OLED.displayOn();
     sleepMode = false;
-    count = 0;
+    tickerSleep.detach();
+    sleepCount = SLEEP_TIME;
   }
 
   String t = String(temperature, 1) + "&#176" + "C";
   String h = String(humidity, 1) + "&#37";
-  String c = String(count);
+  //  String c = String(count);
 
   String message = "";
   message += "<!DOCTYPE html>";
@@ -287,7 +326,7 @@ void handleRoot() {
   message += "<div style=\"position:absolute;top:45px;left:30px;font-size:10px;color:" + samsungVendorColor + ";font-family:sans-serif\">SAMSUNG</div>";
   message += "<div style=\"position:absolute;top:45px;left:135px;font-size:10px;color:" + lgVendorColor + ";font-family:sans-serif\">LG</div>";
 
-  message += "<div id=\"count\" style=\"position:absolute;top:50px;left:60px;font-size:10px;color:white;font-family:sans-serif\"></div>";
+  message += "<div id=\"time\" style=\"position:absolute;top:75px;left:70px;font-size:12px;color:white;font-family:sans-serif\">" + sleepTime + "</div>";
 
   message += "<img src=\"https://scwook.github.io/images/etc/" + acStateImage + "\" style=\"position:absolute;top:120px;left:40px;width:23px;height:23px\">";
   message += "<img src=\"https://scwook.github.io/images/etc/" + sleepStateImage + "\" style=\"position:absolute;top:120px;left:120px;width:23px;height:23px\">";
@@ -315,6 +354,7 @@ void handleRoot() {
   message += "xhttp.onreadystatechange=function(){";
   message += "if(this.readyState==4&&this.status==200){";
   message += "var jsonValue=JSON.parse(this.responseText);";
+  message += "document.getElementById(\"time\").innerHTML=jsonValue.SleepTime;";
   message += "document.getElementById(\"temp\").innerHTML=jsonValue.Temperature + \"&#176\" + \"C\";";
   message += "document.getElementById(\"humi\").innerHTML=jsonValue.Humidity + \"&#37\";}";
   message += "};";
@@ -329,7 +369,7 @@ void handleRoot() {
 
 void handleEnvValue() {
 
-  String jsonObject = "{\"Temperature\":" + String(temperature, 1) + ",\"Humidity\":" + String(humidity, 1) + "}";
+  String jsonObject = "{\"SleepTime\":\"" + sleepTime + "\",\"Temperature\":" + String(temperature, 1) + ",\"Humidity\":" + String(humidity, 1) + "}";
 
   WebServer.send(200, "text/plane", jsonObject);
 }
@@ -430,9 +470,13 @@ void loop() {
     //  OLED.drawXbm(0, yellowLineOffset, temperature_image_width, temperature_image_height, temperature_image_bits);
     OLED.drawXbm(0, 52, wifi_width, wifi_height, *wifi_bits[wifiStrength]);
 
+    IPAddress ip = WiFi.localIP();
+    String ipAddress = String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
     OLED.setFont(ArialMT_Plain_10);
+    OLED.drawString(0, 52, ipAddress);
+
     //    OLED.drawString(24, 52, String(count));
-    OLED.drawString(24, 52, wifiStatus);
+    //    OLED.drawString(24, 52, wifiStatus);
 
     //    String p = String(rssi);
     //    OLED.drawString(34, 52, p);
@@ -444,13 +488,11 @@ void loop() {
   }
 
   if (wifiConnection) {
-    //    WebServer.handleClient();
-    //    delay(100);
+    WebServer.handleClient();
+    delay(100);
     //    processWiFiClient(temperature, humidity, pressure);
     wifiClient();
   }
-
-  //  airConAutoControl();
 
   //  Serial.println("Loop End");
 
@@ -470,6 +512,31 @@ void loop() {
   //  }
 
   //  Serial.println(count);
+}
+
+void airConSleepTimer() {
+
+  if (sleepCount > 0) {
+
+    int8_t hour = sleepCount / 3600;
+    int8_t minute = (sleepCount / 60) % 60;
+    int8_t second = sleepCount % 60;
+    char remainTime[10];
+
+    sprintf(remainTime, "%02d:%02d:%02d", hour, minute, second);
+
+    sleepTime = String(remainTime);
+    sleepCount -= 1;
+  }
+  else {
+    irsend.sendRaw(SAMSUNG_AC_ON29, sizeof(SAMSUNG_AC_ON29) / sizeof(SAMSUNG_AC_ON29[0]), IR_FREQ);
+    delay(1000);
+    irsend.sendRaw(SAMSUNG_AC_OFF_AFTER_1H, sizeof(SAMSUNG_AC_OFF_AFTER_1H) / sizeof(SAMSUNG_AC_OFF_AFTER_1H[0]), IR_FREQ);
+
+    sleepCount = SLEEP_TIME;
+    sleepMode = false;
+    tickerSleep.detach();
+  }
 }
 
 void wifiClient() {
